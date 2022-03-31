@@ -83,13 +83,13 @@ PARALLEL_ENVS = 32
 N_STEPS = 256
 
 # mini-batch update size of sgd
-BATCH_SIZE = 512
+BATCH_SIZE = 1024
 
 # number of mini-batch updates
-N_EPOCHS = 10
+N_EPOCHS = 5
 
 # total number of timesteps where each collection is one timestep
-TOTAL_TIMESTEPS = 20000000
+TOTAL_TIMESTEPS = 20000000000
 
 ENTROPY_COEF = 0.01
 

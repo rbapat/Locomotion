@@ -5,6 +5,8 @@ import torch
 import time
 import collections
 
+from isaacgym.torch_utils import *
+
 # TODO: make setters not modify original views?
 # TODO: support for batched updates to avoid calling set_actor_XXX multiple times
 # TODO: better support for getting rigid bodies, currently hardcoding support for feet
@@ -78,7 +80,7 @@ class RobotDynamics:
             #self.gym.set_actor_root_state_tensor_indexed(self.sim, gymtorch.unwrap_tensor(self._root_state), actor_idx, 1)
 
     def get_linear_velocity(self):
-        return self.root_lin_vel
+        return quat_rotate_inverse(self.root_rotation, self.root_lin_vel)
 
     def set_linear_velocity(self, lin_vel, env_idx = None):
         if env_idx is None:
@@ -90,7 +92,7 @@ class RobotDynamics:
 
 
     def get_angular_velocity(self):
-        return self.root_ang_vel
+        return quat_rotate_inverse(self.root_rotation, self.root_ang_vel)
 
     def set_angular_velocity(self, ang_vel, env_idx = None):
         if env_idx is None:
@@ -173,7 +175,7 @@ class RobotDynamics:
             for arr_pos, _feet_idx in enumerate(feet_idx):
                 arr = body_states[i * num_rb + _feet_idx]['vel']['linear']
                 arr = np.array([a for a in arr]) # why is this such a weird format :(
-                feet_pos[i, :, arr_pos] = torch.from_numpy(arr)
+                feet_pos[i, :, arr_pos] = quat_rotate_inverse(self.root_rotation[i:i+1], torch.from_numpy(arr).unsqueeze(0))[0]
 
         return feet_pos
 
@@ -189,7 +191,7 @@ class RobotDynamics:
     def get_body_collisions(self, collision_thresh = 1.0):
         body_contacts = [0, 1, 2, 3, 6, 7, 10, 11, 14, 15]
 
-        return self.get_collisions(body_contacts, collision_thresh) # TODO: remove knee indices
+        return self.get_collisions(body_contacts, collision_thresh)
     
 class SimHelper:
     def __init__(self):
@@ -271,7 +273,8 @@ class SimHelper:
 class HistoryBuffer:
     def __init__(self, num_envs, default_dof_pos, default_dof_vel):
         self.num_envs = num_envs
-        self.timers = [time.perf_counter() for _ in range(num_envs)]
+        self.timers = torch.zeros(num_envs) # time.perf_counter()
+        self.prev_timers = self.timers.clone()
 
         self.latest = [collections.deque(maxlen = 2) for _ in range(num_envs)]
         self.pos_history = [collections.deque(maxlen = 3) for _ in range(num_envs)]
@@ -287,14 +290,16 @@ class HistoryBuffer:
                 self.vel_history[j].append(default_dof_vel)
 
     def step(self, des_dof_pos, dof_pos, dof_vel):
+        self.timers += 1
+
         for i, (des_dp, dp, dv) in enumerate(zip(des_dof_pos, dof_pos, dof_vel)):
             self.latest[i].append(des_dp)
 
             cur_counter = time.perf_counter()
-            if cur_counter - self.timers[i] > 0.2:
+            if self.timers[i] - self.prev_timers[i] > 12:
                 self.pos_history[i].append(dp)
                 self.vel_history[i].append(dv)
-                self.timers[i] = cur_counter
+                self.prev_timers[i] = self.timers[i]
 
     def get_dof_pos(self, env_idx = None):
         if env_idx is None:
@@ -336,9 +341,11 @@ class HistoryBuffer:
                     self.latest[i].append(self.default_dof_pos)
                     self.pos_history[i].append(self.default_dof_pos)
                     self.vel_history[i].append(self.default_dof_vel)
+                    self.timers[i] = 0
         else:
+            self.timers[env_idx] = 0
             for i in range(3):
-                for j in range(self.num_envs):
-                    self.latest[j].append(self.default_dof_pos)
-                    self.pos_history[j].append(self.default_dof_pos)
-                    self.vel_history[j].append(self.default_dof_vel)
+                self.latest[env_idx].append(self.default_dof_pos)
+                self.pos_history[env_idx].append(self.default_dof_pos)
+                self.vel_history[env_idx].append(self.default_dof_vel)
+                    

@@ -51,14 +51,14 @@
         <visual>
           <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
           <geometry>
-              <mesh filename="../meshes/mini_vision_body.dae" scale="1 1 1"/>
+              <mesh filename="meshes/mini_vision_body.dae" scale="1 1 1"/>
           </geometry>
           <material name="orange"/>
         </visual>
         <collision>
           <origin rpy="0 0 0" xyz="0 0 0.0"/>
           <geometry>
-            <mesh filename="../meshes/mini_vision_body.dae" scale="1 1 1"/>
+            <mesh filename="meshes/mini_vision_body.dae" scale="1 1 1"/>
           </geometry>
         </collision>
     </link>
@@ -80,13 +80,13 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_abd.dae"/>
+                <mesh filename="meshes/mini_vision_abd.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
         <!-- <collision>
             <geometry>
-                <mesh filename="../meshes/mini_vision_abd.obj"/>
+                <mesh filename="meshes/mini_vision_abd.obj"/>
             </geometry>
             <origin rpy="0. 0. 0." xyz="0. 0 0"/>
         </collision> -->
@@ -108,7 +108,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_shank.dae"/>
+                <mesh filename="meshes/mini_vision_shank.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -136,7 +136,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/lower_leg.dae"/>
+                <mesh filename="meshes/lower_leg.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -190,7 +190,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_abd.dae"/>
+                <mesh filename="meshes/mini_vision_abd.dae"/>
             </geometry>
             <origin rpy="3.141592 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -214,7 +214,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_shank.dae"/>
+                <mesh filename="meshes/mini_vision_shank.dae"/>
             </geometry>
             <origin rpy="0.0 0 3.141592" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -242,7 +242,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/lower_leg.dae"/>
+                <mesh filename="meshes/lower_leg.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 3.141592" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -290,7 +290,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_abd.dae"/>
+                <mesh filename="meshes/mini_vision_abd.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -313,7 +313,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_shank.dae"/>
+                <mesh filename="meshes/mini_vision_shank.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -341,7 +341,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/lower_leg.dae"/>
+                <mesh filename="meshes/lower_leg.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -388,7 +388,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_abd.dae"/>
+                <mesh filename="meshes/mini_vision_abd.dae"/>
             </geometry>
             <origin rpy="3.141592 0.0 0.0" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -411,7 +411,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/mini_vision_shank.dae"/>
+                <mesh filename="meshes/mini_vision_shank.dae"/>
             </geometry>
             <origin rpy="0.0 0 3.141592" xyz="0.0 0.0 0.0"/>
         </visual>
@@ -439,7 +439,7 @@
         </inertial>
         <visual>
             <geometry>
-                <mesh filename="../meshes/lower_leg.dae"/>
+                <mesh filename="meshes/lower_leg.dae"/>
             </geometry>
             <origin rpy="0.0 0.0 3.141592" xyz="0.0 0.0 0.0"/>
         </visual>

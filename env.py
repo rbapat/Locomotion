@@ -31,31 +31,14 @@ class K:
     se_input_dim = 142
     se_output_dim = 11
 
-    sigma_t = 0.3
+    sigma_t = 0.1
     desired_feet_height = 0.09
-    '''
-    k_v = 15
-    k_w = 6
-    k_a = 30
-    k_for = 5
-    k_slip = -4
-    k_cl = -750
-    k_ori = -3
-    k_t = -0.6
-    k_q = -37.5
-    k_qdot = -0.03
-    k_qddot = -0.02
-    k_s1 = -2.5
-    k_s2 = -1.2
-    k_base = -75
 
-    '''
     k_v = 3
     k_w = 3
-    k_a = 6
-    k_for = 1
+    k_a = 0.3
     k_slip = -0.08
-    k_cl = -15
+    k_cl = -150
     k_ori = -3
     k_t = -6e-4
     k_q = -0.75
@@ -152,7 +135,7 @@ class Observation():
         return obs, full_obs, loss
 
 class ConcurrentTrainingEnv(VecEnv):
-    def __init__(self, num_envs, asset_path, asset_name, env_shape = (7, 7, 7)):
+    def __init__(self, num_envs, asset_path, asset_name, env_shape = (2, 2, 2)):
 
         self.sim_helper = sm.SimHelper()
         self.num_envs = num_envs
@@ -176,6 +159,7 @@ class ConcurrentTrainingEnv(VecEnv):
         self.contact_state = torch.zeros((self.num_envs, 4))
         self.takeoff_time = torch.zeros((self.num_envs, 4))
         self.touchdown_time = torch.zeros((self.num_envs, 4))
+        self.ep_lens = torch.zeros((self.num_envs))
 
         obs_space = self.obs.output_dim
         self.observation_space = gym.spaces.Box(low = np.zeros(obs_space) - 1000000, high = np.zeros(obs_space) + 1000000, dtype = np.float32)
@@ -202,13 +186,15 @@ class ConcurrentTrainingEnv(VecEnv):
         if env_idx is not None:
             self.takeoff_time[env_idx, :] = 0
             self.touchdown_time[env_idx, :] = 0
+            self.ep_lens[env_idx] = 0
             num_times = 1
         else:
             self.takeoff_time[:] = 0
             self.touchdown_time[:] = 0
+            self.ep_lens[:] = 0
             num_times = self.num_envs
 
-        random_pos = self.sample_data((-1, -1, 0.32), self.env_shape, num_times).squeeze()
+        random_pos = self.sample_data((0, 0, 0.32), self.env_shape, num_times).squeeze()
         random_rot = R.from_euler('xyz', self.sample_data((0, 0, -1), (360, 360, 360), num_times).squeeze(), degrees = True)
 
         self.dyn.set_position(random_pos, env_idx = env_idx)
@@ -244,15 +230,54 @@ class ConcurrentTrainingEnv(VecEnv):
         cur_ang_vel = self.dyn.get_angular_velocity()
         cur_joint_torque = self.dyn.get_joint_forces()
 
+        '''
+        #tracking_lin_vel = 1.0
+        r_tracking_lin_vel = torch.exp(-1 * mag(vel_cmd[:, :2] - cur_lin_vel[:, :2]))
+
+        #tracking_ang_vel = 0.5
+        r_tracking_ang_vel = 0.5 * torch.exp(-1 * mag(vel_cmd[:, 2:] - cur_ang_vel[:, 2:]))
+
+        #lin_vel_z = -2.0
+        r_lin_vel_z = -2 * mag(cur_lin_vel[:, 2:])
+
+        #ang_vel_xy = -0.05
+        r_ang_vel_xy = -0.05 * mag(cur_ang_vel[:, :2])
+
+        #orientation = -5
+        pass
+
+        #torques = -0.000025
+        r_torques = -0.000025 * mag(cur_joint_torque)
+
+        #dof_acc = -2.5e-7
+        r_dof_acc = -2.5e-7 * mag(dof_vel - hist_dof_vel[:, 0, :]) / 0.2
+
+        #feet_air_time =  2.0
+        r_feet_air_time = 2 * torch.sum(self.takeoff_time - 0.1, dim = -1)
+
+        #collision = -1.
+        r_contact_force = -0.01 * torch.sum(self.dyn.get_feet_collsions(350)[1], dim = -1)
+
+        #action_rate = -0.01
+        r_action_rate = -0.01 * mag(target_dof_pos - t_dof_pos_t1)
+
+        total_reward = r_tracking_lin_vel + r_tracking_ang_vel + r_lin_vel_z + r_ang_vel_xy + r_torques + r_dof_acc + r_feet_air_time + r_action_rate + r_contact_force
+        total_reward[total_reward < 0] = 0
+
+        terms = torch.mean(torch.stack([r_tracking_lin_vel, r_tracking_ang_vel, r_lin_vel_z, r_ang_vel_xy, r_torques, r_dof_acc, r_feet_air_time, r_action_rate, r_contact_force, total_reward]), dim = 1)
+        names = ['r_tracking_lin_vel', 'r_tracking_ang_vel', 'r_lin_vel_z', 'r_ang_vel_xy', 'r_torques', 'r_dof_acc', 'r_feet_air_time', 'r_action_rate', 'r_contact_force', 'r_total']
+
+        return total_reward, terms, names
+        '''
+
+        print(cur_lin_vel[0, :2], mag(vel_cmd[:1, :2] - cur_lin_vel[:1, :2]))
         r_v = K.k_v * torch.exp(-1 * mag(vel_cmd[:, :2] - cur_lin_vel[:, :2]))
-        r_w = K.k_w * torch.exp(-1.5 * mag(vel_cmd[:, 2:] - cur_ang_vel[:, 2:]))
+        r_w = torch.zeros(self.num_envs) # K.k_w * torch.exp(-1.5 * mag(vel_cmd[:, 2:] - cur_ang_vel[:, 2:]))
 
         maxes = torch.where(self.takeoff_time > self.touchdown_time, self.takeoff_time, self.touchdown_time)
-        #r_air = K.k_a * torch.where(maxes > 0.25, 0., maxes.type(torch.DoubleTensor))
-        r_air = K.k_a * torch.where(maxes > 0.25, maxes.type(torch.DoubleTensor), 0.)
+        r_air = K.k_a * torch.where(maxes > 0.25, 0., maxes.type(torch.DoubleTensor))
         r_air = torch.sum(r_air, dim = -1)
 
-        r_forward = K.k_for * mag(delta)
 
         norm_feet_vel = mag(cur_feet_vel[:, :2, :].transpose(1, 2))
         r_slip = K.k_slip * norm_feet_vel
@@ -276,12 +301,12 @@ class ConcurrentTrainingEnv(VecEnv):
         r_base = K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * cur_ang_vel[:, 1])
 
         pos_reward = r_v + r_w + r_air
-        neg_reward = r_forward + r_slip + r_cl + r_ori + r_t + r_q + r_qdot + r_qddot + r_s1 + r_s2 + r_base
+        neg_reward = r_slip + r_cl + r_ori + r_t + r_qddot + r_s1 + r_s2 + r_base # r_q + r_qdot +
 
         total_reward = pos_reward * torch.exp(0.2 * neg_reward)
 
-        terms = torch.mean(torch.stack([total_reward, pos_reward, neg_reward, r_v, r_w, r_air, r_forward, r_slip, r_cl, r_t, r_q, r_qdot, r_qddot, r_s1, r_s2, r_base, r_ori]), dim = 1)
-        names = ['total', 'pos', 'neg', 'r_v', 'r_w', 'r_air', 'r_forward', 'r_slip', 'r_cl', 'r_t', 'r_q', 'r_qdot', 'r_qddot', 'r_s1', 'r_s2', 'r_base', 'r_ori']
+        terms = torch.mean(torch.stack([total_reward, pos_reward, neg_reward, r_v, r_w, r_air, r_slip, r_cl, r_t, r_q, r_qdot, r_qddot, r_s1, r_s2, r_base, r_ori]), dim = 1)
+        names = ['total', 'pos', 'neg', 'r_v', 'r_w', 'r_air', 'r_slip', 'r_cl', 'r_t', 'r_q', 'r_qdot', 'r_qddot', 'r_s1', 'r_s2', 'r_base', 'r_ori']
 
         return total_reward, terms, names
 
@@ -290,11 +315,11 @@ class ConcurrentTrainingEnv(VecEnv):
         new_time = time.perf_counter()
         self.contact_state = self.dyn.get_feet_collsions()[1]
 
-        self.takeoff_time[self.contact_state] += (new_time - self.step_timer)
+        self.takeoff_time[self.contact_state] += 1. / 60. # (new_time - self.step_timer)
         self.takeoff_time[~self.contact_state] = 0
 
         self.touchdown_time[self.contact_state] = 0
-        self.touchdown_time[~self.contact_state] += (new_time - self.step_timer)
+        self.touchdown_time[~self.contact_state] += 1. / 60. # (new_time - self.step_timer)
 
         self.step_timer = new_time        
 
@@ -319,10 +344,14 @@ class ConcurrentTrainingEnv(VecEnv):
         rewards, terms, names = self.compute_rewards(observations, target_dof_pos, delta)        
         self.obs.history.step(target_dof_pos, self.dyn.get_dof_position(), self.dyn.get_dof_velocity())
 
-        
-
+        self.ep_lens += 1
         norm_obs = norm_obs.numpy()
+
         dones = self.dyn.get_body_collisions()[0]
+        ep_dones = self.ep_lens > 20 * 60
+        
+        for term_idx in torch.where(ep_dones)[0]:
+            norm_obs[term_idx, :] = self.reset(term_idx)
 
         for term_idx in torch.where(dones)[0]:
             rewards[term_idx] = -10
