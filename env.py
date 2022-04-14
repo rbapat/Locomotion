@@ -38,8 +38,8 @@ class K:
     k_w = 3
     k_a = 0.3
     k_slip = -0.08
-    k_cl = -150
-    k_ori = -3
+    k_cl = -15
+    k_ori = -1
     k_t = -6e-4
     k_q = -0.75
     k_qdot = -6e-4
@@ -194,7 +194,7 @@ class ConcurrentTrainingEnv(VecEnv):
             self.ep_lens[:] = 0
             num_times = self.num_envs
 
-        random_pos = self.sample_data((0, 0, 0.32), self.env_shape, num_times).squeeze()
+        random_pos = self.sample_data((0, 0, 0.28), self.env_shape, num_times).squeeze()
         random_rot = R.from_euler('xyz', self.sample_data((0, 0, -1), (360, 360, 360), num_times).squeeze(), degrees = True)
 
         self.dyn.set_position(random_pos, env_idx = env_idx)
@@ -270,7 +270,6 @@ class ConcurrentTrainingEnv(VecEnv):
         return total_reward, terms, names
         '''
 
-        print(cur_lin_vel[0, :2], mag(vel_cmd[:1, :2] - cur_lin_vel[:1, :2]))
         r_v = K.k_v * torch.exp(-1 * mag(vel_cmd[:, :2] - cur_lin_vel[:, :2]))
         r_w = torch.zeros(self.num_envs) # K.k_w * torch.exp(-1.5 * mag(vel_cmd[:, 2:] - cur_ang_vel[:, 2:]))
 
@@ -291,17 +290,17 @@ class ConcurrentTrainingEnv(VecEnv):
 
         rot_error = np.pi - torch.Tensor(rot.as_euler('xyz', degrees = False)[:, 2])
         r_ori = K.k_ori * torch.abs(rot_error)
-        r_t = K.k_t * mag(cur_joint_torque)
+        r_t = torch.zeros(self.num_envs) # K.k_t * mag(cur_joint_torque)
         r_q = K.k_q * mag(dof_pos - self.default_dof_pos)
         r_qdot = K.k_qdot * mag(dof_vel)
         r_qddot = K.k_qddot * mag(dof_vel - hist_dof_vel[:, 0, :])
         r_s1 = K.k_s1 * mag(target_dof_pos - t_dof_pos_t1)
         r_s2 = K.k_s2 * mag(target_dof_pos - 2 * t_dof_pos_t1 + t_dof_pos_t2)
 
-        r_base = K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * cur_ang_vel[:, 1])
+        r_base = torch.zeros(self.num_envs)  #K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * cur_ang_vel[:, 1])
 
         pos_reward = r_v + r_w + r_air
-        neg_reward = r_slip + r_cl + r_ori + r_t + r_qddot + r_s1 + r_s2 + r_base # r_q + r_qdot +
+        neg_reward = r_cl + r_ori + #r_slip + r_t + r_qddot + r_s1 + r_s2 + r_base # r_q + r_qdot +
 
         total_reward = pos_reward * torch.exp(0.2 * neg_reward)
 

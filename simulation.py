@@ -253,7 +253,7 @@ class SimHelper:
             env = self.gym.create_env(self.sim, lower, upper, envs_per_row)
 
             identity_quat = R.identity().as_quat()
-            pos = gymapi.Transform(p = gymapi.Vec3(0, 0, 0.38), r = gymapi.Quat(*identity_quat))
+            pos = gymapi.Transform(p = gymapi.Vec3(0, 0, 0.28), r = gymapi.Quat(*identity_quat))
             actor = self.gym.create_actor(env, asset_handle, pos, f"{asset_name}_{idx}", idx)
             self.gym.enable_actor_dof_force_sensors(env, actor)
 
