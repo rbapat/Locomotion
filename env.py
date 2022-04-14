@@ -297,10 +297,11 @@ class ConcurrentTrainingEnv(VecEnv):
         r_s1 = K.k_s1 * mag(target_dof_pos - t_dof_pos_t1)
         r_s2 = K.k_s2 * mag(target_dof_pos - 2 * t_dof_pos_t1 + t_dof_pos_t2)
 
-        r_base = torch.zeros(self.num_envs)  #K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * cur_ang_vel[:, 1])
+        #r_base = K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * cur_ang_vel[:, 1])
+        r_base = K.k_base * (0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * torch.abs(cur_ang_vel[:, 1]))
 
         pos_reward = r_v + r_w + r_air
-        neg_reward = r_cl + r_ori + #r_slip + r_t + r_qddot + r_s1 + r_s2 + r_base # r_q + r_qdot +
+        neg_reward = r_cl + r_ori + r_t + r_qddot #+ r_s1 + r_s2 + r_base # r_q + r_qdot + r_slip
 
         total_reward = pos_reward * torch.exp(0.2 * neg_reward)
 
