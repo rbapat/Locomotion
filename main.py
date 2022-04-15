@@ -77,19 +77,19 @@ class CustomCallback(BaseCallback):
         pass
 
 # number of parallel environments to run
-PARALLEL_ENVS = 32
+PARALLEL_ENVS = 8192 #32
 
 # number of experiences to collect per parallel environment
-N_STEPS = 256
-
-# mini-batch update size of sgd
-BATCH_SIZE = 1024
+N_STEPS = 12 # 256
 
 # number of mini-batch updates
-N_EPOCHS = 5
+N_EPOCHS = 4 # 5
+
+# mini-batch update size of sgd
+BATCH_SIZE = PARALLEL_ENVS * N_STEPS // N_EPOCHS
 
 # total number of timesteps where each collection is one timestep
-TOTAL_TIMESTEPS = 20000000000
+TOTAL_TIMESTEPS = 100000000
 
 ENTROPY_COEF = 0.01
 
@@ -99,25 +99,23 @@ LEARNING_RATE = 3e-4
 BUFFER_SIZE = N_STEPS * PARALLEL_ENVS
 
 
-def main():
-    env = ConcurrentTrainingEnv(PARALLEL_ENVS, "assets", "mini_cheetah.urdf")
+def train_ppo():
+    env = ConcurrentTrainingEnv("assets", "mini_cheetah.urdf", PARALLEL_ENVS, (2, 2, 2))
     cb = CustomCallback(env)
 
     model = PPO('MlpPolicy', env, tensorboard_log = './concurrent_training_tb/', verbose = 2, policy_kwargs = {'net_arch': [512, 256, 64]}, batch_size = BATCH_SIZE, n_steps = N_STEPS, n_epochs = N_EPOCHS, ent_coef = ENTROPY_COEF, learning_rate = LEARNING_RATE)
     model.learn(total_timesteps = TOTAL_TIMESTEPS, callback = cb)
+    model.save('ConcurrentTrainingEnv')
 
-    print("Waiting...")
-    input()
+def eval_ppo():
+    env = ConcurrentTrainingEnv("assets", "mini_cheetah.urdf", 32, (2, 2, 2))
+    model = PPO.load('ConcurrentTrainingEnv')
+
     obs = env.reset()
-    for _ in range(1000):
+    for _ in range(100000):
         action, _states = model.predict(obs)
         obs, rewards, dones, info = env.step(action)
         env.render()
-        print(dones)
-        input()
 
 if __name__ == '__main__':
-    main()
-
-if __name__ == '__main__':
-    main()
+    eval_ppo()
