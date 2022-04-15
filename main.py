@@ -100,7 +100,7 @@ BUFFER_SIZE = N_STEPS * PARALLEL_ENVS
 
 
 def main():
-    env = ConcurrentTrainingEnv(PARALLEL_ENVS, "assets", "mini_cheetah.urdf")
+    env = ConcurrentTrainingEnv("assets", "mini_cheetah.urdf", PARALLEL_ENVS, (2, 2, 2))
     cb = CustomCallback(env)
 
     model = PPO('MlpPolicy', env, tensorboard_log = './concurrent_training_tb/', verbose = 2, policy_kwargs = {'net_arch': [512, 256, 64]}, batch_size = BATCH_SIZE, n_steps = N_STEPS, n_epochs = N_EPOCHS, ent_coef = ENTROPY_COEF, learning_rate = LEARNING_RATE)
