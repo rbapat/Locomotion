@@ -8,6 +8,8 @@ import torch.nn as nn
 import time
 import gym
 
+from isaacgym.torch_utils import *
+
 class AgentDynamics:
     def __init__(self, ctx):
         self.ctx = ctx
@@ -63,10 +65,12 @@ class AgentDynamics:
         return self.root_rotation
 
     def get_linear_velocity(self):
-        return self.root_lin_vel
+        #return self.root_lin_vel
+        return quat_rotate_inverse(self.root_rotation, self.root_lin_vel)
 
     def get_angular_velocity(self):
-        return self.root_ang_vel
+        #return self.root_ang_vel
+        return quat_rotate_inverse(self.root_rotation, self.root_ang_vel)
 
     def get_dof_position(self):
         return self.dof_pos
@@ -74,7 +78,6 @@ class AgentDynamics:
     def get_dof_velocity(self):
         return self.dof_vel
 
-    # TODO: Make this more efficient
     def get_feet_position(self, relative = False):
         feet_pos = self.rb_pos[:, self.feet_idx, :] # (num_envs, 4, 3)
         if relative:
@@ -86,26 +89,10 @@ class AgentDynamics:
     def get_feet_velocity(self):
         feet_pos = self.rb_lin_vel[:, self.feet_idx, :] # (num_envs, 4, 3)
         
-        return feet_pos
-        '''
-        feet_pos = torch.zeros((self.ctx.num_envs, 3, 4))
-
-        body_states = self.gym.get_sim_rigid_body_states(self.sim, gymapi.STATE_POS)
-        num_rb = len(body_states) // self.ctx.num_envs
-
-        # TODO: find a much better way to do this
-        for i in range(self.ctx.num_envs):
-            for arr_pos, _feet_idx in enumerate(self.feet_idx):
-                arr = body_states[i * num_rb + _feet_idx]['pose']['p']
-                arr = np.array([a for a in arr]) # why is this such a weird format :(
-                dwad = torch.from_numpy(arr).float().cuda()
-                feet_pos[i, :, arr_pos] = dwad
-
-                if relative:
-                    feet_pos[i, :, arr_pos] -= self.root_position[i]
+        for i in range(4):
+            feet_pos[:, i, :] = quat_rotate_inverse(self.root_rotation, feet_pos[:, i, :])
 
         return feet_pos
-        '''
 
     def get_collisions(self, idx_to_check, collision_thresh):
         contact_forces = torch.norm(self.net_forces[:, idx_to_check, :], dim = 2) # (num_envs, len(idx_to_check))

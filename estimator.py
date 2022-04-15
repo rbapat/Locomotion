@@ -48,6 +48,7 @@ class HistoryBuffer:
         self.update_history(self.dof_pos_err, update_idx, cand_dof_pos_err)
         self.update_history(self.dof_vel, update_idx, cand_dof_vel)
         self.update_history(self.target_dof_pos, update_idx, cand_target_dof_pos)
+        self.prev_timers[update_idx] = self.timers[update_idx]
 
     def get_target_dof_pos(self):
         return self.target_dof_pos[:2, :, :]

@@ -85,17 +85,16 @@ class QuadrupedAgent:
         random_rot = torch.from_numpy(R.from_euler('xyz', self.sample_data((0, 0, -1), (360, 360, 360), num_times)).as_quat()).squeeze().float().cuda()
 
         self.dyn.root_position[env_idx, :] = random_pos 
-        self.dyn.root_lin_vel[env_idx, :] = torch.zeros_like(random_pos) 
-        self.dyn.root_ang_vel[env_idx, :] = torch.zeros_like(random_pos) 
+        self.dyn.root_lin_vel[env_idx, :] = 0
+        self.dyn.root_ang_vel[env_idx, :] = 0
         self.dyn.root_rotation[env_idx, :] = random_rot
         self.dyn.dof_pos[env_idx, :] = self.default_dof_pos[env_idx]
-        self.dyn.dof_vel[env_idx, :] = self.default_dof_vel[env_idx]
+        self.dyn.dof_vel[env_idx, :] = 0
             
-        stupid_reference = torch.cuda.IntTensor(env_idx)
-        indices = gymtorch.unwrap_tensor(stupid_reference)
+        indices = gymtorch.unwrap_tensor(torch.cuda.IntTensor(env_idx))
 
-        a = self.ctx.gym.set_dof_state_tensor_indexed(self.ctx.sim, self.dyn.dof_state_desc, indices, len(env_idx))
-        b = self.ctx.gym.set_actor_root_state_tensor_indexed(self.ctx.sim, self.dyn.root_state_desc, indices, len(env_idx))
+        self.ctx.gym.set_dof_state_tensor_indexed(self.ctx.sim, self.dyn.dof_state_desc, indices, len(env_idx))
+        self.ctx.gym.set_actor_root_state_tensor_indexed(self.ctx.sim, self.dyn.root_state_desc, indices, len(env_idx))
 
         self.obs.history.reset(env_idx = env_idx)
 
@@ -133,7 +132,7 @@ class QuadrupedAgent:
         cur_joint_torque = self.dyn.get_joint_forces()
 
         r_v = K.k_v * torch.exp(-1 * mag(vel_cmd[:, :2] - cur_lin_vel[:, :2]))
-        r_w = torch.zeros(self.ctx.num_envs).cuda() # K.k_w * torch.exp(-1.5 * mag(vel_cmd[:, 2:] - cur_ang_vel[:, 2:]))
+        r_w = K.k_w * torch.exp(-1.5 * mag(vel_cmd[:, 2:] - cur_ang_vel[:, 2:]))
 
         maxes = torch.where(self.takeoff_time > self.touchdown_time, self.takeoff_time, self.touchdown_time)
         r_air = K.k_a * torch.where(maxes > 0.25, 0., maxes.type(torch.DoubleTensor))
@@ -146,24 +145,24 @@ class QuadrupedAgent:
         r_slip = torch.zeros(self.ctx.num_envs).cuda() # torch.sum(r_slip, dim = -1)
 
         delta_cl = mag(cur_feet_pos[:, :, 2:] - K.desired_feet_height)
-        feet_vel_quart = norm_feet_vel**0.25
+        feet_vel_quart = 1 # norm_feet_vel**0.25
         r_cl = K.k_cl * delta_cl * feet_vel_quart
         r_cl = torch.sum(r_cl, dim = -1)
 
         angle = tgm.quaternion_to_angle_axis(rot)
         rot_error = np.pi - angle[:, 2]
         r_ori = K.k_ori * torch.abs(rot_error)
-        r_t = torch.zeros(self.ctx.num_envs).cuda() # K.k_t * mag(cur_joint_torque)
+        r_t = K.k_t * mag(cur_joint_torque)
         r_q = K.k_q * mag(dof_pos - self.ctx.default_dof_pos)
         r_qdot = K.k_qdot * mag(dof_vel)
         r_qddot = K.k_qddot * mag(dof_vel - hist_dof_vel[:, 0, :])
         r_s1 = K.k_s1 * mag(target_dof_pos - t_dof_pos_t1)
         r_s2 = K.k_s2 * mag(target_dof_pos - 2 * t_dof_pos_t1 + t_dof_pos_t2)
 
-        r_base = torch.zeros(self.ctx.num_envs).cuda()  #K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * cur_ang_vel[:, 1])
+        r_base = K.k_base * (0.8 * cur_lin_vel[:, 2] + 0.2 * torch.abs(cur_ang_vel[:, 0]) + 0.2 * torch.abs(cur_ang_vel[:, 1]))
 
-        pos_reward = r_v + r_w + r_air
-        neg_reward = r_cl + r_ori #+ r_slip + r_t + r_qddot + r_s1 + r_s2 + r_base # r_q + r_qdot +
+        pos_reward = r_v + r_air # + r_w
+        neg_reward = r_cl + r_ori + r_t + r_q + r_qdot + r_qddot + r_base # + r_slip + r_s1 + r_s2
 
         total_reward = pos_reward * torch.exp(0.2 * neg_reward)
 

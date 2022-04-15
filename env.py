@@ -92,7 +92,7 @@ class ConcurrentTrainingEnv(VecEnv):
         if self.should_render:
             self.ctx.gym.step_graphics(self.ctx.sim);
             self.ctx.gym.draw_viewer(self.viewer, self.ctx.sim, True)
-            self.ctx.gym.sync_frame_time(self.ctx.sim)
+            #self.ctx.gym.sync_frame_time(self.ctx.sim)
         else:
             self.ctx.gym.poll_viewer_events(self.viewer)
     def close(self):
